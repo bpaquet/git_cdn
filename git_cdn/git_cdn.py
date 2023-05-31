@@ -9,6 +9,8 @@ from concurrent.futures import CancelledError
 from multiprocessing import cpu_count
 from typing import Union
 
+import newrelic.agent
+
 import aiohttp
 from aiohttp import ClientSession
 from aiohttp import TCPConnector
@@ -292,6 +294,7 @@ class GitCDN:
         )
         # For the case of clone bundle, we don't enforce authentication, and browser redirection
         if method == "get" and path.endswith("/clone.bundle"):
+            newrelic.agent.set_transaction_name("clone.bundle " + git_path, group=None, priority=None)
             bind_contextvars(handler="clone-bundle")
             if not git_path:
                 raise HTTPBadRequest(reason="bad path: " + path)
@@ -306,11 +309,13 @@ class GitCDN:
         bind_contextvars(git_protocol_version=protocol_version)
 
         if method == "post" and path.endswith("git-upload-pack"):
+            newrelic.agent.set_transaction_name("git-upload-pack " + git_path, group=None, priority=None)
             bind_contextvars(handler="upload-pack")
             if not git_path:
                 raise HTTPBadRequest(reason="bad path: " + path)
             return await self.handle_upload_pack(request, git_path, protocol_version)
         if method in ("post", "put") and path.endswith("git-receive-pack"):
+            newrelic.agent.set_transaction_name("git-receive-pack" + git_path, group=None, priority=None)
             bind_contextvars(handler="redirect")
             return await self.proxify(request)
 
@@ -318,6 +323,7 @@ class GitCDN:
         # arguing it is impossible to guess a valid 64 byte oid without having access
         # to the git repo already
         if method == "get" and GITLFS_OBJECT_RE.match(path):
+            newrelic.agent.set_transaction_name("get-lfs " + git_path, group=None, priority=None)
             bind_contextvars(handler="lfs")
             self.lfs_manager.set_base_url(str(request.url.origin()) + "/")
             h = request.headers.copy()
@@ -327,6 +333,7 @@ class GitCDN:
                 self.app.served_lfs_objects += 1
             return resp
 
+        newrelic.agent.set_transaction_name("proxify " + git_path, group=None, priority=None)
         bind_contextvars(handler="redirect")
         return await self.proxify(request)
 
@@ -406,9 +413,11 @@ class GitCDN:
         return web.Response(text=error_text, status=error_code)
 
     async def handle_liveness(self, _):
+        newrelic.agent.set_transaction_name("liveness_probe", group=None, priority=None)
         return web.Response(text="live")
 
     async def handle_api_last_active_branches(self, request):
+        newrelic.agent.set_transaction_name("api.last_active_branches " + request.query["repo"], group=None, priority=None)
         auth_response = await self.auth_request(request, request.query["repo"])
         if auth_response is not None:
             return web.Response(text=auth_response.reason, status=auth_response.status)
@@ -427,6 +436,7 @@ class GitCDN:
         return web.Response(body=cmd_stdout)
 
     async def handle_api_merge_base(self, request):
+        newrelic.agent.set_transaction_name("api.merge_base " + request.query["repo"], group=None, priority=None)
         auth_response = await self.auth_request(request, request.query["repo"])
         if auth_response is not None:
             return web.Response(text=auth_response.reason, status=auth_response.status)
@@ -442,6 +452,7 @@ class GitCDN:
         return web.Response(body=cmd_stdout)
 
     async def handle_api_diff(self, request):
+        newrelic.agent.set_transaction_name("api.diff " + request.query["repo"], group=None, priority=None)
         auth_response = await self.auth_request(request, request.query["repo"])
         if auth_response is not None:
             return web.Response(text=auth_response.reason, status=auth_response.status)
@@ -460,6 +471,7 @@ class GitCDN:
         return web.Response(body=cmd_stdout)
 
     async def handle_api_diff_no_renames(self, request):
+        newrelic.agent.set_transaction_name("api.diff_no_renames " + request.query["repo"], group=None, priority=None)
         auth_response = await self.auth_request(request, request.query["repo"])
         if auth_response is not None:
             return web.Response(text=auth_response.reason, status=auth_response.status)
@@ -563,7 +575,9 @@ class GitCDN:
     def get_sema_count(self):
         if self.sema is not None:
             try:
-                return self.sema._value  # pylint: disable = protected-access
+                sema = self.sema._value  # pylint: disable = protected-access
+                newrelic.agent.add_custom_attribute("sema", sema)
+                return sema
             except NotImplementedError:
                 return 0
         return 0

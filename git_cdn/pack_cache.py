@@ -6,6 +6,8 @@ import os
 from datetime import datetime
 from time import time
 
+import newrelic.agent
+
 # Third Party Libraries
 from aiohttp.abc import AbstractStreamWriter
 from structlog import getLogger
@@ -66,6 +68,7 @@ class PackCache:
         )
         # We always send the pack from the cache, even on cache Miss
         log.debug("Serving from pack cache", hash=self.hash, pack_hit=self.hit)
+        newrelic.agent.add_custom_attribute("served_from_cache", 1)
         with open(self.filename, "rb") as f:
             count = 0
             try:

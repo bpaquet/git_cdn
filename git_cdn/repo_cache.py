@@ -4,6 +4,8 @@ import os
 import time
 from concurrent.futures import CancelledError
 
+import newrelic.agent
+
 from aiohttp.web_exceptions import HTTPInternalServerError
 from aiohttp.web_exceptions import HTTPUnauthorized
 from structlog import getLogger
@@ -199,6 +201,7 @@ class RepoCache:
         """Checks if all 'wants'
         and updates rcache if that is not the case
         """
+        newrelic.agent.add_custom_attribute("want_size", len(wants))
         if not self.exists():
             log.debug("rcache noexistent, cloning")
             await self.update()

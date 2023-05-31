@@ -47,9 +47,6 @@ RUN git config --global pack.threads 4  &&\
 
 ADD config.py /app/
 
-# entrypoint contains stuff that you shouldn't want to customize
-# starts gunicorn
-ENTRYPOINT ["gunicorn", "git_cdn.app:app", "-c", "config.py"]
-# CMD holds the optional arguments (change at will)
-CMD ["--bind", ":8000"]
+CMD ["newrelic-admin", "run-program", "gunicorn", "git_cdn.app:app", "-c", "config.py", "--bind", ":8000"]
+
 EXPOSE 8000

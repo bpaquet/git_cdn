@@ -30,6 +30,7 @@ gunicorn = "*"
 sentry-sdk = "^1.10.1"
 ujson = "*"
 uvloop = "^0.17.0"
+newrelic = "*"
 
 
 [tool.poetry.dev-dependencies]
